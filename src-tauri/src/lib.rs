@@ -2,7 +2,9 @@
 use std::env;
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
-
+use tauri::{AppHandle};
+use tauri::webview::WebviewWindowBuilder;
+use tauri::WebviewUrl;
 use tauri::Manager;
 
 //---------- funcion para obtener los adaptadores de red ------------//
@@ -494,6 +496,44 @@ fn validar_ipv6(ip: String) -> bool {
     ip.parse::<std::net::Ipv6Addr>().is_ok()
 }
 
+
+// ---------- Funcion para la ventana secundaria ---------- //
+#[tauri::command]
+fn toggle_ventana_secundaria(app_handle: AppHandle) -> Result<String, String> {
+    let label = "ventana_secundaria";
+
+    // Si la ventana ya existe, alternar visibilidad
+    if let Some(ventana) = app_handle.get_webview_window(label) {
+        if let Ok(visible) = ventana.is_visible() {
+            if visible {
+                ventana.hide().map_err(|e| e.to_string())?;
+                return Ok("Ventana secundaria ocultada".into());
+            } else {
+                ventana.show().map_err(|e| e.to_string())?;
+                ventana.set_focus().map_err(|e| e.to_string())?;
+                return Ok("Ventana secundaria mostrada".into());
+            }
+        }
+    }
+
+    // Si no existe, crearla
+    WebviewWindowBuilder::new(
+        &app_handle,
+        label,
+        WebviewUrl::App("views/Conf_Ipv4/index.html".into()),
+    )
+    .title("titulo")
+    .resizable(true)
+    .visible(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    Ok("Ventana secundaria creada y mostrada".into())
+}
+
+
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -526,7 +566,8 @@ pub fn run() {
             cambiar_config_puerto_ipv6,
             configurar_puerto_dhcp_ipv6,
             validar_ipv4,
-            validar_ipv6
+            validar_ipv6,
+            toggle_ventana_secundaria
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
